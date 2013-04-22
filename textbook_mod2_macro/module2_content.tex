@@ -8,18 +8,15 @@ To customize functions in ImageJ, one typical way is to write a Java plugin that
 
 Another important merit of writing a macro is its documentation aspect: as the processing becomes complex, we easily forget the steps and details of the procedures and the values of parameters that were used for that task. Even if your job is not a repetitive one, a macro written for a task becomes a valuable record of what was done to the image.  
 
-In this short course, we will start from the essential basics first. We then try writing a macro that processes two-channel time series to segment nucleus in histone channel and use that information to measure the intensity changes in the second channel over time. Figure \ref{fig:strategy} shows the outline of the image analysis strategy. We start with two channel image of a nucleus. Using a combination of image processing and image subtractions, we first segment the rim of the nucleus (fig. \ref{fig:Nucch2histone}, \ref{fig:nucrim}). We then use this as a mask to measure the intensity in the other channel (\ref{fig:Nucch1signal}).
+In this short course, we will first start out with the basics of macro programming. We learn to handle variables, strings, looping and conditions and arrays. We then try writing a macro that processes two-channel image to segment nucleus in histone channel and use that information to measure the intensity changes in the second channel . Figure \ref{fig:strategy} shows two images that we analyze. If you compare these two images, you might realize that the green signal at the periphery of nucleus (red) is stronger in the second image. We will to quantify this difference.  
 
 \begin{figure}[htbp]
  \centering
- \subfloat[Nucleus Histone channel.]{\label{fig:Nucch2histone}\includegraphics[width = 0.45\textwidth]{fig/NucCh2histone.png}} 
+ \subfloat[Time point 1]{\label{fig:NucTimePoint1}\includegraphics[width = 0.45\textwidth]{fig/NPC_T01.png}} 
  \quad
- \subfloat[Nucleus signal channel.]{\label{fig:Nucch1signal}\includegraphics[width = 0.45\textwidth]{fig/NucCh1signal.png}} \\
- \subfloat[Histon channel was processed and nucleus rim was segmented.]{\label{fig:nucrim}\includegraphics[width = 0.45\textwidth]{fig/NucRim.png}} 
- \quad
- \subfloat[ Segmented rim merged with the histone channel]{\label{fig:nucRimMergedsignal}\includegraphics[width = 0.45\textwidth]{fig/NucRimMerged.png}}
- \caption{Strategy of measurement.}
- \label{fig:strategy}
+ \subfloat[Time point 15]{\label{fig:NucTimePoint15}\includegraphics[width = 0.45\textwidth]{fig/NPC_T15.png}} \\
+ \caption{NPC localization difference at two time points: More NPC in nucleus periphery. }
+ \label{fig:NucMeasure}
 \end{figure}
 
 \subsection{Other ways to Customize ImageJ}
@@ -1110,168 +1107,100 @@ An example case where conversion of string to number (in this case an integer) r
 
 \section{Measurement of Nucleus Periphery Intensity}
 
-We now shift to a more actual task for learning the ImageJ macro programming. Our task is to measure intensity changes over time. We did something similar in the previous chapter but we step into a bit more difficult hence realistic case. The image sample we use in this section is two channel image of nucleus, one channel is for histone signal and the other channel for a nuclear pore complex protein. The time series was captured a process of this NPC complex relocalizing from cytoplasm to the nuclear membrane. 
+We now shift to a more actual task for learning the ImageJ macro programming. 
 
-Load the image stack \textbf{NPCsingleCell.tif}. This is a hyperstack sequence. Slide the scroll bar at the bottom back-and-forth to watch the process of intensity changes. Histone signal is more or less constant, but the NPC signal (labeled in green) shows strong accumulation to the nuclear membrane. To quantify this process, we measure the intensity changes in the nuclear rim over time. The procedure takes following steps. 
-\begin{enumerate}
-    \item Segmentation of nucleus rim.
-    \item Using the rim mask, measure the intensity over time. 
-\end{enumerate}
+\subsection{What we will do here}
 
-We first write a macro for the nucleus rim segmentation. 
-
-\subsection{Segmentation of Nucleus Rim}
-
-To segment the nucleus rim, we take following steps. It's rather long but if you once write a macro everything could be done by running the macro by a single click. 
-
-\begin{enumerate}
-  \item Split channels (fig. \ref{fig:originalNucleus})
-    \item Blur the image (fig. \ref{fig:BlurredNucleus})
-    \item Binarize the image by intensity thresholding (fig. \ref{fig:BInarizedNucleus})
-    \item Remove other Nucleus
-    \item Duplicate the image
-    \begin{enumerate}
-        \item Erode one of them (fig. \ref{fig:erodedBinary})
-
-        \item Dilate one of them (fig. \ref{fig:dilatedBinary})
-
-    \end{enumerate}
-    \item Subtract the eroded from the dilated (fig. \ref{fig:NucleusRim})
-
-\end{enumerate}
+We take an example 2Channel images with histone signal and nuclear pore complex (NPC) protein signal. There are two images from different time points. 
+\begin{itemize}
+\item NPC\_T01.tif
+\item NPC\_T15.tif
+\end{itemize}
 
 \begin{figure}[h!]
  \centering
- \subfloat[Original Nucleus Image]{\label{fig:originalNucleus}\includegraphics[width = 0.30\textwidth]{fig/OriginalNuc.png}} 
+ \subfloat[Time point 1]{\label{fig:NucTimePoint1}\includegraphics[width = 0.45\textwidth]{fig/NPC_T01.png}} 
  \quad
- \subfloat[Blurred Nulcleus Image]{\label{fig:BlurredNucleus}\includegraphics[width = 0.30\textwidth]{fig/BlurredNuc.png}}
+ \subfloat[Time point 15]{\label{fig:NucTimePoint15}\includegraphics[width = 0.45\textwidth]{fig/NPC_T15.png}} \\
+ \caption{NPC localization difference at two time points: Histone (Red) and NPC (Green) channels are shown. Compard to the first time point, NPC is more concentrated in nucleus periphery at time point 15. }
+ \label{fig:NucMeasure}
+\end{figure}
+
+Our task is to compare NPC signal intensity in the nuclear periphery at these two time points. The original data is a time lapse sequence showing a process of NPC protein relocalizing from cytoplasm to the nuclear membrane. Above two images are from the first and the last time points\footnote{The original 4D hyperstack file is NPCsingleNucleus.tif. You could load the file via CourseModule plugin.}. 
+
+Following is the outline of our protocol. 
+\begin{enumerate}
+    \item Split channels, blur nucleus a bit then segment nucleus by thresholding.
+    \item Use particle analysis to get nucleus ROIs
+    \item (looping) Increase the ROI line width and then convert ROIs from areas to lines.
+    \item Combine all ROIs and create a single ROI. 
+    \item Measurement of NPC signal intensity using the ROI.
+    \item Print out mean intensity of NPC signal in nuclear periphery for that frame.  
+\end{enumerate}
+
+In this protocol, we use ROI manager extensively.  
+
+\begin{figure}[h!]
+ \centering
+ \subfloat[Original NPC Image, Channel1]{\label{fig:originalNPC}\includegraphics[width = 0.45\textwidth]{fig/NPC_T1npc.png}} 
  \quad
- \subfloat[Binarized image, after thresholding.]{\label{fig:BInarizedNucleus}\includegraphics[width = 0.30\textwidth]{fig/ConvertedMask.png}} \\
- \subfloat[Dilated Binary Image]{\label{fig:dilatedBinary}\includegraphics[width = 0.30\textwidth]{fig/dilated.png}}
+ \subfloat[Original Nucleus Image, Channel 2]{\label{fig:originalNuc}\includegraphics[width = 0.45\textwidth]{fig/NPC_T1nuc.png}}
+\\
+ \subfloat[Thresholded Image]{\label{fig:binarizedNuc}\includegraphics[width = 0.45\textwidth]{fig/NPC_T1thresholded.png}}
  \quad
- \subfloat[Eroded Binary Image]{\label{fig:erodedBinary}\includegraphics[width = 0.30\textwidth]{fig/eroded.png}}
- \quad
- \subfloat[Subtraction Result, the rim.]{\label{fig:NucleusRim}\includegraphics[width = 0.30\textwidth]{fig/NucRim.png}}
- \caption{Strategy of measurement.}
+ \subfloat[NPC with band ROIs]{\label{fig:NPCbandRois}\includegraphics[width = 0.45\textwidth]{fig/NPC_resultsChNPC.png}}
+ \caption{Steps of measurement.}
  \label{fig:nucsegProc}
 \end{figure}
 
+\subsection{Step-by-Step Actual Macro Writing}
 
-In the following we sample most of the macro functions using Macro Recorder (\ijmenu{[Plugins > Macros > Record\ldots]}) so keep it active. Check that Macro is selected in ``Record:'' drop down menu at the top-left corner of the recorder.
+Here is the step-by-step protocol. Load the image stack \textbf{NPC\_01.tif} and follow the instructions. Don't start writing a macro immediately, try the first half of the procedure (down until ``Analyze Particles'') manually without command recorder. After you are convinced that it works, start \ijmenu{[Plugins > Macros > Record]} to record the commands.  When you record functions, be sure that Macro is selected in ``Record:'' drop down menu at the top-left corner of the recorder.
 
-\subsubsection{Splitting Channels}
+It is always good to write several lines and then test run the part immediately. In this way you could easily fix the code if there is error. Macro basically is executed line by line, so you could incrementally write a line and test it. 
 
-To split the multichannel image stack from the GUI menu, do \ilcom{[Image > Color > Split Channels]}. In the Recorder, you would see the following macro functions in the history. 
+The latter half is difficult to do / cannot do from the ImageJ menu. For this part, you should write the code without recording. 
+
+It is rather long but mostly due to the detailed explanation of what is going on for each step. You could check the final code first (appears in the final part of this section) so that the actual coding you need to do is not so long. In addition, if you once write a macro everything could be done by running the macro in a matter of a single click of ``Run'' button in the script editor. 
+
+\begin{enumerate}
+  \item Split channels (fig. \ref{fig:nucsegProc} a, b): \\ \ijmenu{[Image > Color > Split Channels]}
+  \begin{itemize}
+	\item In the Recorder, you would see the following macro functions in the history. 
 \begin{lstlisting}[numbers=none]
 run("Split Channels");
 \end{lstlisting}
-We will use this later to write macro. 
+	\item ``run'' function is the most frequently used build-in macro function. 
 
-\subsubsection{Isolating Rim Mask}
-Following is the step-by-step procedure. Try once first from the GUI (mouse and the menu bar!). Then reopen the macro recorder to record history of commands as macro functions. I recommend you to try first without worrying about the recording mistakes. 
+\fbox{
+\parbox[b][18em][c]{0.80\textwidth}{
+  \textbf{run("command"[, "options"])}
+  Executes an ImageJ menu command. The optional second argument contains values that are automatically entered into dialog boxes (must be GenericDialog or OpenDialog). Use the Command Recorder (Plugins>Macros>Record) to generate run() function calls. Use string concatentation to pass a variable as an argument. With ImageJ 1.43 and later, variables can be passed without using string concatenation by adding "\&" to the variable name.
+}}
 
-\begin{enumerate}
-  \item Gaussian Blur
-  \begin{itemize}
-    \item \ijmenu{[Process > Filter > Gaussian Blur]}, sigma = 1.5, Do Stack.
-    \item Blurring image slightly removes noise. Better results for the thresholding below.  
+The run function takes menu item as the first argument, and optional values (values you fill in in dialog for many of the functions) in the second argument. In case of channel splitting, there is not option so the second argument is ignored. 
   \end{itemize}
-  \item Find Threshold
+  \item We now work on the nucleus image. Activate (Click a window to bring up to the top) Channel 2 (red, nucleus image).
   \begin{itemize}
-    \item \ijmenu{[Image > Adjust > Threshold]},  Otsu method
-    \item This simply changes the LUT, not the data. 
-  \end{itemize}
-  \item Apply Threshold: Click 'Apply'
-  \begin{itemize}
-    \item Changes the data to black and white according to the above Otsu based threshold value. 
-  \end{itemize}
-  \item Find Threshold again (Otsu method)
-  \begin{itemize}
-    \item We do this again for selecting nucleus for the ``AnalyzeParticle'' in the following.
-  \end{itemize}
-  \item Analyze Particles
-  \begin{itemize}
-    \item \ijmenu{[Analyze > Analyze Particles]}
-    \item Options::
-    \begin{itemize}
-      \item Size: 800-Infinity
-      \item Check ``Pixle Units''
-      \item Circularity: default (0 - 1.0)
-      \item Show: Mask
-      \item Check Display Results, Clear results, Exclude on edges, Include holes. 
-    \end{itemize}
-    \item We use AnalyzeParticle as a filter for segmented object. In our case, this filtering removes nucleus touching the edge of image. This way of usage is also effective in removing small none-nucleus signals. 
-  \end{itemize}
-  \item Use the "Mask" output. Invert LUT
-  \begin{itemize}
-    \item \ijmenu{[Image > Look-up Table > Invert LUT]}
-  \end{itemize}
-  \item Duplicate Stack, because we erode one and dilate the other.
-  \begin{itemize}
-    \item \ijmenu{[Image > Duplicate]}
-    \item Set Iterations \ijmenu{ [Process > Binary > Options]}
-    \begin{itemize}
-      \item iterations 2 or 3
-      \item dark background
-    \end{itemize}
-    \item Original: Dilate \ijmenu{[Process > Binary > Dilate]}
-    \begin{itemize}
-      \item This increases the edge of nucleus by 2 or 3 pixels. 
-    \end{itemize}
-    \item Duplicate: Erode \ijmenu{[Process > Binary > Erode]}
-    \begin{itemize}
-      \item This decreases the edge of nucleus by 2 or 3 pixels. 
-    \end{itemize}
-  \end{itemize}
-  \item Image Subtraction
-  \begin{itemize}
-    \item \ijmenu{[Process > Image Calculator]}
-    \item keep original, difference of Dilated and Eroded.
-    \begin{itemize}
-      \item Leaves a band of 4 or 6 pixels at the edge of nucleus. 
-    \end{itemize} 
-  \end{itemize}
-\end{enumerate}
+	\item In the recorder, the function \ilcom{selectWindow("C1-NPC\_T1.tif");} appears. 
+	\item Though this function works with this specific file, it does not work with different images. To generalize the macro we should combine this part with the channel splitting such that:
+\begin{lstlisting}
+orgtitle = getTitle();
+run("Split Channels");
+c1name = "C1-" + orgtitle;
+c2name = "C2-" + orgtitle;
+selectWindow(c2name);
+\end{lstlisting}
+	\item  \textbf{Details:} To activate an image in macro, the window should be specified in some way to activate that image. For this we use the build-in macro function \ilcom{setWindow(image title)}.  
 
-If you could successfully do the processing and its macro recording, check the results in the recorder. Below is an example of the direct output from the recorder. 
-
-\lstinputlisting{code/code_recordNucSeg.ijm}
-
-This already is a macro that runs properly. But there is a problem: the code should be improved to increase the generality of code. Not general, because for example if you see the line 1, the function is 
-
-\ilcom{selectWindow("C1-NPCsingleNucleus.tif");}. 
-
-\begin{indentCom}
 \fbox{
 \parbox[b][3em][c]{0.80\textwidth}{
   \textbf{selectWindow("name")}\\
 Activates the window with the title "name".
 }
 }
-\end{indentCom}
 
-\ilcom{selectWindow(<WindowTitle>)} is a macro function that takes a title of a window as an argument and activates that window (bringing up the window to the top). Therefore in case of line 1, window to be selected is very specific, limited to the image with title ``C1-NPCsingleNucleus.tif''. But we want to apply this code to other images as well. If you go through the code towards bottom, such specific window name appears several times such as in line 12 and 15.
-
-To upgrade this macro applicable to any nucleus image, we use image ID. Each window has a unique ID number, so we first capture that ID from the target nucleus image and use that ID in the following lines. A function \ilcom{getImageID()} captures the imageID of the currently active (top) window and returns it, so we will introduce this in the code. 
-
-\begin{indentCom}
-\fbox{
-\parbox[b][8em][c]{0.80\textwidth}{
-\textbf{getImageID()}\\
-Returns the unique ID (a negative number) of the active image. Use the selectImage(id), isOpen(id) and isActive(id) functions to activate an image or to determine if it is open or active.
-}
-}
-\end{indentCom}
-
-To select a window, instead of using \ilcom{selectWindow()}, we could select an image by ID number. For this we will use ``selectImage(ID)'' function.
-
-\begin{indentCom}
-\fbox{
-\parbox[b][8em][c]{0.80\textwidth}{
-\textbf{selectImage(id)}\\
-Activates the image with the specified ID (a negative number). If id is greater than zero, activates the idth image listed in the Window menu. The id can also be an image title (a string).
-}
-}
+This function takes a title of a window as an argument and activates that window. Since ``Split Channel'' has a standard behavior that it appends ``C1-'' or ``C2-'' or ``C3'' in front of the original image title, we can construct the name of the resulting images after channel splitting. How do we get the original image title? For this, there is a command \ilcom{getTitle()} which returns the image title as a string. 
 
 \fbox{
 \parbox[b][3em][c]{0.80\textwidth}{
@@ -1279,10 +1208,22 @@ Activates the image with the specified ID (a negative number). If id is greater 
 Returns the title of the current image.
 }
 }
-\end{indentCom}
+
+Putting these macro functions together, we can have the lines of  macro that splits a multi channel image and then select the nucleus channel as already shown above. 
+
+
+\textbf{Optional: Do this if you have time.} \ilcom{setWindow} function is constrained by the image title. We could alternatively specify an image by ID number, not by its name. This is in many cases better since window title could be overlapped where as imageID is based on the window ID, so using image ID number avoids name clash. Each window has a unique ID number. A function \ilcom{getImageID()} captures the imageID of the currently active (top) window and returns that value. 
+
+\fbox{
+\parbox[b][8em][c]{0.80\textwidth}{
+\textbf{getImageID()}\\
+Returns the unique ID (a negative number) of the active image. Use the selectImage(id), isOpen(id) and isActive(id) functions to activate an image or to determine if it is open or active.
+}
+}
 
 \begin{indentexercise}{1}
-Test the code below and run it on different windows. Confirm that each window has different ID number. 
+\textbf{getImageID() exercise:}
+Open a new tab and test the code below and run it on different windows. Confirm that each window has different ID number. 
 %\begin{lstlisting}[numbers=none]
 \begin{lstlisting}
 id = getImageID();
@@ -1292,251 +1233,200 @@ print( name );
 \end{lstlisting}
 \end{indentexercise}
 
-Using image IDs, we could upgrade the code as follows. 
+  \end{itemize}
 
-\lstinputlisting[morekeywords={*, getImageID, selectImage, orgID, dilateID, erodeID}]{code/code_recordNucSegV2.ijm}
+  \item Blur the image to reduces noise.\\
+ \ijmenu{[Process > Filter > Gaussian Blur]} and set sigma = 1.
+  \begin{itemize}
+	\item The macro function is 
+\begin{lstlisting}[numbers=none]
+run("Gaussian Blur...", "sigma=1");
+\end{lstlisting}
+	\item Here is another case of \ilcom{run} function, but this time with the second argument. Since Gaussian Blur command first calls a dialog pop-up which asks you for the size of the Gaussian kernel (sigma), the second argument in this function specifies the sigma value. You could test this one line code in a separate tab to test effect of changing the number of sigma. 
+  \end{itemize}
+  \item Binarize the image by Auto Local Threshold (fig. \ref{fig:binarizedNuc}).\\
+ \ijmenu{[Image > Adjust > Auto Local Threshold...]}, Method "Mean", Radius = 100 and others are default value. 
+  \begin{itemize}
+	\item  The macro function is\\
+\begin{lstlisting}[numbers=none]
+run("Auto Local Threshold", "method=Mean radius=100 parameter_1=0 parameter_2=0 white");
+\end{lstlisting}
+  \end{itemize}
+  \item Analyze Particles: \\
+\ijmenu{[Analyze > Analyze Particles]}. Area: 100 - Infinity, Show nothing, check exclude edge particles,  include holes and add to RoiManager. 
 
-Here is the explanation of what was done. 
-\begin{itemize}
-  \item line 1: The first line is replaced with getImageID() function. 
-  \item line 10: getImageID() function inserted for a new image created by Analyze Particle function (in line 9). The new image is the mask that is eliminated with edge-touching nucleus. 
-  \item line 13: getImageID() function inserted for the duplicated image. 
-  \item line 15: selectWindow function in line 14 is commented out and replaced by selectImage function. 
-  \item line 19: similarly, selectWindow function is replaced by selectImage function. 
-  \item line 22: Because we now have imageIDs of both dilated and eroded images, we could replace the specific names of the images to imageID. Compare the line 21 (commented out) and the line 22. 
-\end{itemize}
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=0.6\textwidth]{fig/NPC_PAdialog.png}
+\caption{Particle Analysis dialog}
+\label{fig:padialog}
+\end{center}
+\end{figure}
 
-We are now almost done with the generalization of the code, but there still is a line that is not general. See line 12. This line duplicates the stack, and there you see name of the image in the argument. To modify this, we first need to understand the \ilcom{run} function. 
+  \begin{itemize}
+	\item This operation extracts nucleus ROIs and store in ROI manager. At the same time this operation ignores garbages and other nucleus from being listed in ROI manager.
+	\item The macro function is:\\
+\begin{lstlisting}[numbers=none]  
+run("Analyze Particles...", 
+	"size=50-Infinity circularity=0.00-1.00 show=Nothing exclude clear include add");
+\end{lstlisting}
+	\item Here is the \ilcom{run} function again now with many more options in the second argument. With the ``Analyze Particle\ldots'' command, its dialog asks many options. All those options are now included in the second argument. We generally do not write all these things from scratch. We RECORD the function by giving command. Recording avoids mistakes and work loads, so use it as much as possible! \\
+To use variables inside the argument, the best practice is to construct the option argument outside the run command. For example, above command could be rewritten as:
+\begin{lstlisting}[numbers=none]
+minsize = 50;
+opt = "size=" + minsize + "-Infinity circularity=0.00-1.00 show=Nothing exclude clear include add";  
+run("Analyze Particles...",  opt);
+\end{lstlisting}
+This renovation does not change the behavior of the previous single line version, but this change increases the readability. In addition, a new variable \ilcom{minsize} is explicitly defined so that it will be easy to change the allowed minimum size of the particle filtering. 
+  \end{itemize}
+  \item  We now have ROIs, but we need to convert them so that the ROI selects only the rim of nuclei, the peripheral zone of nucleus. To do this we need to work on each ROI one by one as conversion of ROI works only with single ROI\ldots you need to loop from here. 
 
-\begin{indentCom}
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=0.6\textwidth]{fig/NPC_roManagerFilled.png}
+\caption{Roi Manager with of Nucleus ROIs}
+\label{fig:roimanagerFilled}
+\end{center}
+\end{figure}
+
+  \item (in the loop) Select a ROI in the roi manager. 
+  \begin{itemize}
+  \item  the macro function is
+\begin{lstlisting}[numbers=none]  
+	roiManager("Select", i);
+\end{lstlisting}
+
 \fbox{
-\parbox[b][18em][c]{0.80\textwidth}{
-  \textbf{run("command"[, "options"])}
-  Executes an ImageJ menu command. The optional second argument contains values that are automatically entered into dialog boxes (must be GenericDialog or OpenDialog). Use the Command Recorder (Plugins>Macros>Record) to generate run() function calls. Use string concatentation to pass a variable as an argument. With ImageJ 1.43 and later, variables can be passed without using string concatenation by adding "\&" to the variable name.
-}}
-\end{indentCom}
+\parbox[b][12em][c]{0.80\textwidth}{
+\textbf{roiManager("select", index)}\\
+Selects an item in the ROI Manager list, where index must be greater than or equal zero and less than the value returned by roiManager("count"). Note that macros that use this function sometimes run orders of magnitude faster in batch mode. Use roiManager("deselect") to deselect all items on the list. For an example, refer to the ROI Manager Stack Demo macro.
+}
+}
 
-The run function takes menu item as the first argument, and optional values (values you fill in in dialog for many of the functions) in the second argument. In case of image duplication, the macro function looks like this:
+	\item When you write macro, for loop must have a value for exiting the loop. Since the looping will be done for the list of ROIs, the number of ROIs within the roi manager is needed. For this, you could use the following command. 
 
-\ilcom{run("Duplicate...", "title=[Mask of C1-NPCsingleNucleus-1.tif] duplicate range=1-15");}
+\fbox{
+\parbox[b][6em][c]{0.80\textwidth}{
+\textbf{roiManager("count")}\\
+Returns the number of items in the ROI Manager list.
+}
+}
 
-The first argument ``Duplicate\ldots'' is the item for \ijmenu{[Image > Duplicate\ldots]}. The second argument contains multiple optional values you choose in GUI. The first is the title of the image that will be duplicated. In the above case, a long name is given to the duplicated image. Square brackets surrounding the title is for suppressing problem with spaces in the name, because spaces are the separator for the options in the second argument. ``duplicate'' is a keyword for a checkbox in the duplication dialog, whether to duplicate multiple frames in a stack or just a single currently shown frame. The third option is a frame range, which defines the range of frames to be duplicated. Since we want to duplicate all frames, the range is set to 1-15, from first frame to the last 15th frame.
-
-There are two arguments in this macro function that are not flexible enough for various images. First is the title. We could have a more general name for the duplicated image. The second is the frame range.  The duplication of full stack should be achieved for stacks with any number of frame, not limited to 15 frames stacks. 
-
-We can construct the option string (the second argument) as follows to solve these problems. 
-
-\ilcom{options = "title = dup.tif duplicate range=1-" + nSlices}
-
-As we have studied already, \ilcom{nSlices} is a macro function that returns the number of frames or slices in the current stack. We can then replace the second argument for image duplication by this new variable "options". 
-
-\ilcom{run("Duplicate...", options);}
+\item Here you could try the following exercise to understand the principle of what we are going to do in the following part of the procedure. 
 
 \begin{indentexercise}{2}
-Create a new script tab and write the following code. Run it with several stacks with different frame numbers and confirm that the outputs are different. 
+Open a new tab and test the code below to get some feeling of accessing ROI listing in the RoiManager. 
 \begin{lstlisting}
-print(nSlices);
-options = "title=dup.tif duplicate range=1-” + nSlices;
-print(options);
-\end{lstlisting}
-\end{indentexercise}
-
-Here is another upgrade to the code. All the commented out lines were removed, and line 10 is now inserted with the construction of options. 
-
-\lstinputlisting{code/code_recordNucSegV3.ijm}
-
-We now have a macro that segments nucleus rim. Save this macro. When you name the file, add an extension ``.ijm'', as this indicates that the file is an ImageJ macro. 
-
-We move on to do the stack measurement. 
-
-\subsection{Intensity Measurement using Mask}
-
-Using the isolated nucleus rim image, we could specify the region where we measure the intensity in the NPC channel. We first do this in GUI: Open the rim image (if you closed it already, run the macro to regenerate it!) and the NPC image. 
-
-Ideally, we should be able to do the full processing starting from original two channel image stack, but for now we develop the measurement part using two image stack, a NCP channel stack and a nucleus rim stack. We later combine nucleus segmentation part. 
-
-With the rim image we first set the measurement parameter by \ijmenu{[Analysis > Set Measurements\ldots]}. You will have a dialog window with many check boxes. Among the parameters to be measured, check at least Area, Mean Gray Value and Integrated Intensity. Integrated Intensity is the sum of all pixel values. A very important setting is "Redirect to". By default ``None'' is selected in the drop-down menu, but here you select the NPC channel image. 
-
-\begin{figure}[h!]
-\begin{center}
-\includegraphics[scale=0.5]{fig/SetMeasurementsRedirect.png}
-\caption{Measurement Setting with redirection.}
-\label{fig_MeasSettingRedirect}
-\end{center}
-\end{figure}
-
-Redirection of measurement means that the measured values are not from currently active image, but from the image specified in the setting window. In our case, we want to specify the region of measurement by rim image, and do the measurement in the other image (NPC signal). First, let's merge two stacks to generate a two channel image stack. 
-
-\ilcom{[Image > Color > Merge Channels\ldots]}
-
-Assign NPT channel to be green, and nucleus (histone) channel to be red. We now have an image stack that looks like figure \ref{ig/NucRimMerged.png}. We start with the merged image for the reason that in the end we want to have a code that processes multichannel stack. 
-
-
-We do the following. 
-
-\begin{enumerate}
-  \item \ijmenu{[Image > Color > Split Channels\ldots]}
-  \item \ijmenu{[Analysis > Set Measurements\ldots]}
-  \begin{itemize}
-    \item Be sure that the measurement is redirected!
-  \end{itemize}
-  \item Activate the rim image and do \ijmenu{[Edit > Selection > Create Selection]}
-  \begin{itemize}
-    \item This selects the background, not the rim. 
-  \end{itemize}
-  \item \ijmenu{[Edit > Selection > make Inverse]}
-  \begin{itemize}
-    \item Inverting the selection, now we are selecting the nucleus rim. 
-  \end{itemize}
-  \item \ijmenu{[Analyze > Measure]}
-\end{enumerate}
-
-Selection of the rim should look like figure \ref{fig_RoiNucRim}.
-
-\begin{figure}[h!]
-\begin{center}
-\includegraphics[scale=0.8]{fig/ROIselectionNucRim.png}
-\caption{ROI selection of nucleus rim. }
-\label{fig_RoiNucRim}
-\end{center}
-\end{figure}
-
-You will then see results in the Results table like in figure \ref{fig_NucRimMeasureResults}
-
-\begin{figure}[h!]
-\begin{center}
-\includegraphics[width=0.95\textwidth]{fig/MeasurementResults.png}
-\caption{Results output.}
-\label{fig_NucRimMeasureResults}
-\end{center}
-\end{figure}
-
-If you record these procedures in the macro recorder, it should be pretty simple like shown below. Create a new tab in the Script Editor and copy \& paste (or if not possibe, click ``create'' button in the Recorder).
-
-\begin{lstlisting}
-run("Split Channels");
-run("Set Measurements...", "area mean centroid perimeter shape integrated limit display redirect=C2-Composite decimal=3");
-selectWindow("C1-Composite");
-run("Create Selection");
-run("Make Inverse");
-run("Measure");
-\end{lstlisting}
-
-In the 1st line, we split the multichannel stack to do processing individually. Two image stacks appear and their names are used in line 2 and line 3. For increasing the flexibility of this code, we need to somehow generalize these names. 
-
-If you test splitting several different multichannel images, you will recognize that there is a naming rule. The channel splitting outputs two image stacks with each of their names with ``C1-'' or ``C2-'' added to the beginning of the original image title. Knowing this, we could construct window title of both channel 1 and channel 2 stacks from the window title of the original multi-channel image. 
-
-See the line 2. We need a generalization of the ``Set Measurement'' function argument where a specific name of the window title appears. If we have a name constructed according to the rule I mentioned above, we can replace the specific image name with a general one. We upgrade first two lines to enhance its flexibility. 
-
-In the same manner, we could replace the specific name that appears in the third line to a general one. 
-
-\begin{lstlisting}[morekeywords={*, c1, c2, opt, getTitle}]
-orgName = getTitle();
-run("Split Channels");
-c1 = "C1-" + orgName;
-c2 = "C2-" + orgName;
-opt = "area mean centroid perimeter shape integrated limit display redirect=" + c1 + " decimal=3";
-run("Set Measurements...", opt);
-selectWindow( c2 );
-run("Create Selection");
-run("Make Inverse");
-run("Measure");
-\end{lstlisting}
-
-The upgraded code first captures the title of the multi-channel image. This will be used in the third and fourth lines. Then the channels are separated into two stacks. Since we know the rule of how the resulting image stack names are, we construct titles each for channel 1 and channel 2. Finally,  we compose the argument for the ``Set Measurement'' and generalize the window name in ``setWindow'' line. 
-
-\begin{indentexercise}{1}
-Merge rim and NPC image stacks and test the code. 
-\end{indentexercise}
-
-\subsubsection{Adding for-loop}
-
-As you may have already realized, the code above measures only one frame. To measure the intensity changes over time, we need to add some looping to do the measurement. We already did this in the macro basics section and should be understandable with the extended code. Modification is very simple: We insert for statement and setSlice lines after line 7, and close the loop by a curly brace after the last line.  
-
-\lstinputlisting[morekeywords={*, for, nSlices, setSlice}]{code/code_redirectedMeasurement.ijm}
-
-\begin{indentexercise}{2}
-Merge rim and NPC image stacks and test the code to see if it measures intensity in the nuclear rim over time frames. 
-\end{indentexercise}
-
-\subsubsection{Integrating Segmentation and Measurements}
-
-Finally, we can integrate segmentation macro and intensity measurement macro. With the last code, we used  two-channel stack with rim mask and the NCP signal. All we need to do is to insert the segmentation part between line 4 and line 5 since if we use the original multi-channel stack, c2 will be the name of unprocessed histone stack. 
-
-A simple way to do this is to convert the segmentation macro to a use-defined function. Like all the macro functions that you see in the ImageJ macro function reference list, you could create one by your self. To do so, we first learn with a very simple function. 
-
-If we have a macro like below:
-
-\begin{lstlisting}
-a = 10;
-b = 20;
-c = a + b + a * b ;
-print c;
-\end{lstlisting}
-
-It probably is evident for you that there will be an output in the log window "230". We could make a function that does the calculation in line 3 in the following way.
-
-\begin{lstlisting}[morekeywords={*, function, return}]
-a = 10;
-b = 20;
-c = calc1(a, b);
-print c;
-
-function calc1(n, m){
-	return n + m + n * m;
+roicount = roiManager("count");
+if ( roicount < 1) 
+	exit("No ROI listed in the Roi Manager!");
+for ( i = 0 ; i < roicount ; i ++){
+	wait(100);
+	roiManager("select", i);
 }
 \end{lstlisting}
+Confirm visually that ROIs are sequentially selected. \ilcom{wait} function freezes the macro interpreter for indicated number of milli seconds. This line was added so that you could see that the ROIs are sequentially selected. 
+\end{indentexercise}
+
+  \end{itemize}
+  \item (in the loop) Set ROI line width. Default line width is 1. Increase the width to 4 pixels.\\
+In the ROI manager, click \ijmenu{[Properties]} then change ``Width'' to 4.
+  \begin{itemize}
+	\item  the macro function is
+\begin{lstlisting}[numbers=none]  
+	roiManager("Set Line Width", 4);
+\end{lstlisting}
+  \end{itemize} 
+
+  \item (in the loop)  Convert Area ROIs to Line Rois. \\
+\ijmenu{[Edit > Selection > Area to Line]} then \ijmenu{[Edit > Selection > Line to Area]}.
+  \begin{itemize}
+	\item  Since we want to measure only the pixels in the vicinity of ROI lines, we first convert them from area ROIs to line ROIs and then revert it to an Area ROI. This back and forth operations results in a thin band of selection in the nucleus periphery.  
+	\item Macro function is
+\begin{lstlisting}[numbers=none]  
+	run("Area to Line");
+	run("Line to Area");
+\end{lstlisting}
+  \end{itemize}
+  \item (in the loop)  Update the ROI. \\
+In the ROI manager, click \ijmenu{[Update]}.
+  \begin{itemize}
+	\item This updating will change the stored information in the Roi manager. Band of ROI is stored then.
+	\item Macro function is
+\begin{lstlisting}[numbers=none]  
+	roiManager("Update");
+\end{lstlisting}
+  \end{itemize}
+  \item Combine all ROIs.  \\
+In the ROI manager, first \ijmenu{[Deselect]} to deselect all ROIs. Then \ijmenu{[Combine]}
+  \begin{itemize}
+	\item  Merges all the ROIs to a single ROI. We combine all ROIs to get a simple measurement of average intensity of the periphery band of all nucleus in the frame. The resulted combined ROI is then stored in the 0th index ROI within the RoiManager. 
+	\item Macro functions are:
+\begin{lstlisting}[numbers=none]  
+roiManager("Deselect");
+roiManager("Combine");
+\end{lstlisting}
+  \end{itemize} 
+  \item Activate NPC channel. (Click the NPC image fig. \ref{fig:originalNPC}).
+  \begin{itemize}
+	\item  We use select window, and assuming that you have set the variable ``c1title'' (see above) the macro function is simply\\
+\begin{lstlisting}[numbers=none]  
+selectWindow(c1title);
+\end{lstlisting}
+  \end{itemize} 
+  \item Select the 0th index ROI, where combined ROI is stored. 
+  \begin{itemize}
+	\item  Set the combined ROI to the NPC channel to prepare for the measurement (fig. \ref{fig:NPCbandRois}). 
+	\item Macro function is:
+\begin{lstlisting}[numbers=none]  
+roiManager("Select", 0);
+\end{lstlisting}
+  \end{itemize} 
+  \item Get Statistics and print results.
+  \begin{itemize}
+	\item  If we are using only GUI, we could use \ijmenu{[Analyze > Measure]}. This same action could be done in macro using \ilcom{run("Measure")}, but we then need to access the results table and get the value from there. If we are measuring more complex measurement parameters such as shape descriptors, we could use \ilcom{run("Measure")}. Instead, we use a macro function that directly does mean intensity measurement in a convenient way. 
+	\item The macro function is:
+\begin{lstlisting}[numbers=none]  
+getRawStatistics(nPixels, mean, min, max, std, histogram);
+print("Mean:", mean, " Min:",  min, "Max:", max, "std", std);
+\end{lstlisting}
+\ilcom{getRawStatistics} funciton is a bit unique in a way that the arguments you pass to the function will be the returned values after executing this function. Hence after running this command, argument such as \ilcom{nPixels} will be the measurement results. You will then see the results in the log window by \ilcom{print} in the second line. 
+  \end{itemize} 
+\end{enumerate}
+
+
+Finally, put all these fragments of code into a single code. 
+
+\lstinputlisting{code/code_2chMeasurement.ijm}
 
 \begin{indentexercise}{3}
-\begin{enumerate}
-\item Modify the code above so that the function calculates m to the power of n. Use function pow(m, n) for this. Run the code. 
-
-\item Change the name of function to calc2 and run the code. If there is error, fix the code. 
-\end{enumerate}
-
+Compare NPC intensity in nuclear periphery of time point 1 and 15. Is there difference? Change the width of the measurement ROI width and test the difference. You might also need to consider the baseline intensity. 
 \end{indentexercise}
 
-I added three lines after the previous code. Line 6 declares that I am trying to define a new user-defined function with a name "calc1". It asks for two arguments n and m. Using those variables given as arguments, calculation is done and then the result is \textbf{return}ed. Functions normally have input and output. In this case, inputs are n and m, the output is the calculation result. 
+\begin{indentexercise}{4}
+Extend the macro, so that the macro closes all images after measurement. Use \ilcom{setWindow(windowtitle)} and \ilcom{close()}.  
 
-In the same way, we could convert the segmentation macro and create a function that takes an imageID as input, do processing to do segmentation, and then returns an image ID as output. Here is the code. 
-
-\lstinputlisting[morekeywords={*, function, return, orgID, resultID, nucseg}]{code/code_recordNucSegV3_function.ijm}
-
-The lines I added are only three: In line 1, I declared that this is a function with name "nucseg" that takes a single argument orgID. In the original code, orgID, which is the imageID of the original histone channel image was captured using getImageID function. We do not need this in this function since the imageID of the original histone channel image stack will be the input value, so the line 2 is commented out. 
-
-One line is inserted at line 20, to capture the imageID of resulting segmented image stack. This value, which we call ``resultID'' in the function, will be returned in the line 27. In the last line, a curly brace is added to close the function boundary. 
-
-We can paste this code below the intensity measurement macro, and call thus function to segment the nucleus rim. In below, I show only the part in the intensity measurement macro where function call was added, line 6 to line 10. 
-
-\begin{lstlisting}
-orgName = getTitle();
-run("Split Channels");
-c1 = "C1-" + orgName;
-c2 = "C2-" + orgName;
-
-selectWindow(c1);
-nucorgID = getImageID();
-nucrimID = nucseg( nucorgID );
-selectImage(nucrimID);
-c1 = getTitle();
-
-opt = "area mean centroid perimeter shape integrated limit display redirect=" + c2 + " decimal=3";
-run("Set Measurements...", opt);
-selectWindow(c1);
-for (i =0; i < nSlices; i++){
-	setSlice(i+1);
-	run("Create Selection");
-	run("Make Inverse");
-	run("Measure");
+\fbox{
+\parbox[b][8em][c]{0.80\textwidth}{
+\textbf{close()}\\
+Closes the active image. This function has the advantage of not closing the "Log" or "Results" window when you meant to close the active image. Use run("Close") to close non-image windows.
 }
-\end{lstlisting}
+}
+\end{indentexercise}
 
-In line 6 and 7, image ID of the histone channel is captured. As we do not know if the histone channel image stack is the top window, I explicitly called the window by selectWindow command, and then read out the image ID. this imageID (nucorgID) is then passed to the function in line 8 (nucseg(nucorgID)). After the image processing in the function nucseg, output image ID is returned so we capture that ID by a variable nucrimID. Just to be sure, I activate the rim mask image stack by selectImage function in line 9 and then title of the window is read out. This title is then stored in the variable c1 (c1 was initially the title of the original histone image stack but now replaced by the rim mask stack). Form there, everything is same. 
+\begin{indentexercise}{5}
 
-Here is the final code. 
+A bit advanced: Modify the code so that Instead of getting a mean intensity of all nucleus in the frame, do \ilcom{run("Measure")} for every loop. This will result in the values appearing in the results window. When all nucleus is measured, display the histogram of measured values. 
 
- \lstinputlisting[morekeywords={*, function, return, orgID, resultID, nucseg}]{code/code_final.ijm}
+Hint: With Results Table being active, choose \ijmenu{[Results > Distribution\ldots]}. Record this command as macro function and use it for modifying the code.
 
+If you have time: Calculate the mean intensity by storing values in the Results Table to arrays. Hint: use
+\begin{itemize} 
+\item \ilcom{newArray()}
+\item \ilcom{getResult("Column", row)}
+\item \ilcom{Array.getStatistics(array, min, max, mean, stdDev)}.
+\end{itemize}
+\end{indentexercise}
 
 
 

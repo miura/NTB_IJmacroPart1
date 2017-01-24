@@ -7,11 +7,10 @@ Please review only the first part.
 
 (done) Add more on String treatments. 
 
-The second part (nucleus segmentation and intensity measurements) will be largely edited for diminishing overlaps with the module.
+(done) The second part (nucleus segmentation and intensity measurements) will be largely edited for diminishing overlaps with the module.
 
 (done) Seb: Could you please add details on arrays, we will use them in module 3.
 
-Kota: ... so in the end, there are only two ours so the actual teaching in the course will be a crash course style, more interactive than the detailed and slow progress written in the manual. 
 
 %%%%%  20130419 (Kota)
 
@@ -65,3 +64,7 @@ rank the mean intensity Array, find the one with highest intensity.
 
 
 (maybe setResults)
+
+%%%% 20130422
+
+Modifying the second part done. 

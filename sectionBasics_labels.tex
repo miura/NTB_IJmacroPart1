@@ -13,3 +13,15 @@ There should be a blank text field where you write your macro. Since the editor 
 From script editor's own menu, select \ijmenu{[Language -> IJ1 Macro]}.
 
 Then, write your first macro as shown below (see also figure \ref{fig_ScriptEditor}). \\
+
+\begin{lstlisting}[numbers=none]
+print("Hello World!");
+
+\end{lstlisting}
+
+Don't ignore quotation marks, parenthesis and the semi-colon! 
+Syntax highlighter offers automatic coloring of ImageJ functions, because you selected the language "IJ macro" in above. It increases the readability of codes.
+
+Then in the bottom-left corner of the script editor, there is a button labeled "Run". Clicking this, you will see that a log window is created (if it is already there, then it will have a new line) printing "Hello World!" (Figure \ref{fig_HelloWorldLog}). Another way to run the macro is via Script Editor menu,  \ijmenu{[Run -> Run]} . You could use Ctrl-R (Windows) or Command-R (OSX) as well.
+
+Later when you want to start writing another macro, you could just create a new tab by \ijmenu{[File > New]} and then select \ijmenu{[Language -> ImageJ Macro]} again.

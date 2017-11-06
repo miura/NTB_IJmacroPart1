@@ -3,7 +3,6 @@ sectionAim_Why_do_we.tex
 sectionIntroduction_.tex
 sectionTools_labelse.tex
 sectionBasics_labels.tex
-lstlisting_numbersnone_printHel.tex
 figures/editor_helloworld_singleline
 figures/helloworld_logwindow
 subsubsectionSimple_.tex

@@ -4,7 +4,6 @@ sectionIntroduction_.tex
 sectionTools_labelse.tex
 sectionBasics_labels.tex
 lstlisting_numbersnone_printHel.tex
-Dont_ignore_quotatio.tex
 figures/editor_helloworld_singleline
 figures/helloworld_logwindow
 subsubsectionSimple_.tex

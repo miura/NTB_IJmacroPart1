@@ -96,9 +96,14 @@
 %{\end{list}
 %}
 
-%\newenvironment{indentexercise}[1]
-%{{\setlength{\leftmargin}{2em}}
-%\textbf{Exercise #1}
+\newenvironment{indentexercise}[1]
+{{\setlength{\leftmargin}{2em}}
+\textbf{Exercise #1}
+\begin{list}{}
+	\item
+}
+{\end{list}}
+
 
 %\newenvironment{indentFiji}
 %{
